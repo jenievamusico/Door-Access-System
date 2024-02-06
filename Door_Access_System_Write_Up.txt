@@ -1,6 +1,17 @@
 Developers: Jenieva Musico, Daniel Bissada
 
-    For this project, both developers contributed equally to the research, planning, and implementation of this program. We made an effort to ensure that both of us had an understanding of how the LCD, and UART systems work as well as how we are able to take input from the keypad and produce an output to the LCD, UART and LEDs.
-    Our program displays “ENTER PASSCODE” to the LCD and UART displays, by use of a look-up table, and then takes 5 inputs (4 digits followed by a #) from the keypad as the buttons are pressed by the user. These values are stored in RAM locations 30H-35H, and then checked to determine if the correct code was input by the user. If the code is correct, the system will run the 5-second LED animation to imitate a processing delay, and then display “ACCESS GRANTED” on both the LCD and UART displays and the program will end. If the code is incorrect, the system will run the 5-second LED animation to imitate a processing delay, and then display “ACCESS DENIED” on both the LCD and UART displays. After this, the program will run again, asking the user to enter a new passcode, and checking for the correct input. After 3 failed attempts to input the correct code, the program will display “LOCK DOWN” on the LCD and UART displays, and run a 3 min LED animation delay before allowing the user to input a new passcode.
-    Our program runs smoothly, and the main requirements for the program have been implemented. However, our program does not include an animation that imitates a door opening, and if we had more time, we would have added a display for each key inputted by the user (for example a * symbol displayed each time a digit is inputted for the passcode).
+    For this project, both developers contributed equally to the research, planning, and implementation of this program. We made an effort to
+ensure that both of us had an understanding of how the LCD, and UART systems work as well as how we are able to take input from the keypad
+and produce an output to the LCD, UART and LEDs.
+    Our program displays “ENTER PASSCODE” to the LCD and UART displays, by use of a look-up table, and then takes 5 inputs (4 digits followed
+by a #) from the keypad as the buttons are pressed by the user. These values are stored in RAM locations 30H-35H, and then checked to
+determine if the correct code was input by the user. If the code is correct, the system will run the 5-second LED animation to imitate a
+processing delay, and then display “ACCESS GRANTED” on both the LCD and UART displays and the program will end. If the code is incorrect
+the system will run the 5-second LED animation to imitate a processing delay, and then display “ACCESS DENIED” on both the LCD and UART
+displays. After this, the program will run again, asking the user to enter a new passcode, and checking for the correct input. After 3
+failed attempts to input the correct code, the program will display “LOCK DOWN” on the LCD and UART displays, and run a 3 min LED animation
+delay before allowing the user to input a new passcode.
+    Our program runs smoothly, and the main requirements for the program have been implemented. However, our program does not include an
+animation that imitates a door opening, and if we had more time, we would have added a display for each key inputted by the user (for
+example a * symbol displayed each time a digit is inputted for the passcode).
     

@@ -1,0 +1,493 @@
+      ;									 
+      ;	This code gets INPUT AND saves it onto memory locations 30H, 31H, 32H, 33H, 34H - 			
+      ;	get code is conneected directly to checkcode awhich is connected to wrong code
+      ; "wrongcode" works good now, it check 3 times for the correct code and after 3 time it goes into lockdown
+      ; need to write down function and be able to return from it
+      ; need to encorporate LCD & UART Displays (working on it )
+      ; this runs on 11.085 & 1000 upd frequency
+       
+       
+       
+      ORG 0
+      RS EQU P1.3
+      E	EQU P1.2
+       
+       
+       
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       
+      											MAIN: 
+ 		LCALL 	SetLCD
+ 		LCALL	UART_SETUP
+       
+      ;************ PRINT ENTER PASSCODE IN UART ***************
+ 	   	LCALL	MSG1
+ 		LCALL	TRANSMIT
+		ACALL LEDS_5sec_Animation
+ 		LCALL ResetReg
+ 		LCALL GetCode
+      		;LCALL CheckCode
+      		;LCALL MSG3
+       
+       
+      FINISHED: 
+      ;************* PRINT ACCESS GRANTED IN UART *************
+ 	   				LCALL	MSG2
+ 					LCALL	TRANSMIT
+ Access_Granted:		SJMP	Access_Granted
+       
+ 		SJMP	FINISHED
+       
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END OF MAIN ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      ;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       
+      ; ---------------------------------- GET CODE FROM KEYPAD -------------------------------------
+       
+      GetCode:	;CALL ResetReg
+ 			INC R6
+ 			MOV R0, #30H
+ 			MOV 64H, #5		;use scratch pad memory location 64H as counter (R1 was causing issues)
+ NextKey:	CALL ScanKeyPad
+			MOV A, R7
+ 			MOV @R0, A
+ 			CALL LongDelay
+ 			CALL LongDelay
+ 			CALL LongDelay
+ 			CALL LongDelay
+ 			INC R0
+ 			DJNZ 64H, NextKey	; this actually get 4 values then gets out of GetCode SubRoutine
+       
+ 			LCALL CheckCode
+      			
+ 			SJMP FINISHED
+ 			RET
+      ;-------------------------------------------------------------- CHECK CODE SUBROUTINE ----------------------------------------------------------------------
+       
+      CheckCode:
+      			
+ 			MOV A, 30H
+ 			CJNE A, #0F9H, WrongCode
+ 			MOV A, 31H
+ 			CJNE A, #0A4H, WrongCode
+ 			MOV A, 32H
+ 			CJNE A, #0B0H, WrongCode
+ 			MOV A, 33H
+ 			CJNE A, #99H, WrongCode
+ 			MOV A, 34H
+ 			CJNE A, #0AH, WrongCode
+       
+ 			RET
+       
+      WrongCode:
+      			
+      ;************ PRINT ACCESS DENIED IN UART *************
+ 	    	LCALL	MSG3
+ 			LCALL	TRANSMIT
+       
+ 			CJNE R6, #3, To_Get_Code
+ 			JMP	To_Lcok_Down
+ To_Get_Code: LCALL GetCode
+       
+       
+ To_Lcok_Down: LCALL LockDown
+ 			RET
+
+
+      LockDown:
+       
+      LockDownLED: 
+       
+      ;************ PRINT ACCESS DENIED IN UART *************
+ 	   	LCALL	MSG3
+ 		LCALL	TRANSMIT
+       
+		ACALL LEDS_3min_Animation
+		MOV	R6, #0H
+       
+ 		LCALL	GetCode
+      		
+ 			RET
+       
+       
+      ;------------------------------- SCAN ROWS ---------------------------------------
+      ScanKeyPad:		;Scan Row3
+      			
+			CLR P0.3		;Clear Row3
+       
+ 			CALL CheckRow0		;Call scan column subroutine
+ 			SETB P0.3		;Set Row3
+       
+ 			JB F0,Done  		;If F0 is set, end program 
+       
+      						
+       
+      			;Scan Row2
+       
+ 			CLR P0.2		;Clear Row2
+       
+ 			CALL CheckRow1		;Call scan column subroutine
+ 			SETB P0.2		;Set Row3
+       
+ 			JB F0,Done		;If F0 is set, end program 						
+       
+       
+       
+      			;Scan Row1
+       
+ 			CLR P0.1		;Clear Row1
+       
+ 			CALL CheckRow2		;Call scan column subroutine
+ 			SETB P0.1		;Set Row3
+       
+ 			JB F0,Done		;If F0 is set, end program 
+       
+       
+       
+      			;Scan Row0
+       
+ 			CLR P0.0		;Clear Row0
+       
+ 			CALL CheckRow3		;Call scan column subroutine
+ 			SETB P0.0		;Set Row3
+      
+ 			JB F0,Done		;If F0 is set, end program 
+       
+      														
+       
+ 			JMP ScanKeyPad		;Go back to scan Row3
+       
+      							
+       
+ Done:			CLR F0		        ;Clear F0 flag before exit
+ 			RET
+       
+      ;---------------------------- SCAN COLUMNS ----------------------------
+ CheckRow0:		JNB P0.4, ColRow03	;If Col0 Row3 is cleared - key found
+ 			JNB P0.5, ColRow13	;If Col1 Row3 is cleared - key found
+ 			JNB P0.6, ColRow23	;If Col2 Row3 is cleared - key found
+ 			RET					
+      
+ ColRow03:		SETB F0			;Key found - set F0
+ 			MOV R7,#0B0h		;Code for '3'
+       
+ 			RET				
+       
+ ColRow13:		SETB F0			;Key found - set F0
+ 			MOV R7,#0A4h		;Code for '2'
+       
+ 			RET				
+       
+ ColRow23:		SETB F0			;Key found - set F0
+ 			MOV R7,#0F9h		;Code for '1'
+       
+ 			RET				
+      
+ CheckRow1:		JNB P0.4, ColRow02	;If Col0 Row2 is cleared - key found
+ 			JNB P0.5, ColRow12	;If Col1 Row2 is cleared - key found
+ 			JNB P0.6, ColRow22	;If Col2 Row2 is cleared - key found
+ 			RET					
+       
+ ColRow02:		SETB F0			;Key found - set F0
+ 			MOV R7,#82h		;Code for '6'
+       
+ 			RET				
+       
+ ColRow12:		SETB F0			;Key found - set F0
+ 			MOV R7,#92h		;Code for '5'
+       
+ 			RET				
+       
+ ColRow22:		SETB F0			;Key found - set F0
+ 			MOV R7,#99h		;Code for '4'
+       
+ 			RET				
+       
+ CheckRow2:		JNB P0.4, ColRow01	;If Col0 Row1 is cleared - key found
+ 			JNB P0.5, ColRow11	;If Col1 Row1 is cleared - key found
+ 			JNB P0.6, ColRow21	;If Col2 Row1 is cleared - key found
+ 			RET					
+      
+ ColRow01:		SETB F0			;Key found - set F0
+ 			MOV R7,#90h		;Code for '9'
+     
+ 			RET			
+       
+ ColRow11:		SETB F0			;Key found - set F0
+ 			MOV R7,#80h		;Code for '8'
+       
+ 			RET				
+       
+ ColRow21:		SETB F0			;Key found - set F0
+ 			MOV R7,#0F8h		;Code for '7'
+       
+ 			RET				
+       
+ CheckRow3:		JNB P0.4, ColRow00	;If Col0 Row0 is cleared - key found
+ 			JNB P0.5, ColRow10	;If Col1 Row0 is cleared - key found
+ 			JNB P0.6, ColRow20	;If Col2 Row0 is cleared - key found
+ 			RET					
+       
+ ColRow00:		SETB F0			;Key found - set F0
+ 			MOV R7,#0Ah		;Code for '-' replacing '#'. '#' cannot be display on 7-segment
+       
+ 			RET				
+       
+ ColRow10:		SETB F0			;Key found - set F0
+ 			MOV R7,#0C0h		;Code for '0'
+       
+ 			RET				
+       
+ ColRow20:		SETB F0			;Key found - set F0
+ 			MOV R7,#0BFh		;Code for '-' replacing '*'. '*' cannot be display on 7-segment
+       
+ 			RET	
+       
+      ;------------------------------ RESET REGISTERS ------------------------------------
+       
+ ResetReg:		MOV R2, #00h
+ 			MOV R3, #00h
+ 			MOV R4, #00h
+ 			MOV R5, #00h
+ 			MOV R6, #00h
+ 			MOV R7, #00h
+ 			RET
+       
+       
+      ;****************************************************************************************************************** UART SETUP **************************
+       UART_SETUP:
+ 			Mov 	TMOD, #20H 
+  			Mov 	TH1, #0FAH 	;baud rate: 4800
+  			Mov	SCON, #50H 	;8-bit, 1 stop bit, 1 start bit
+  			Setb 	TR1		;Start timer
+ 			RET
+      ;****************************************************************************************************************** ENTER PASSCODE MESSAGE ***************   
+       MSG1:      
+ 			LCALL ClearDisp		; clears LCD display before message is to be sent 
+  			MOV 	DPTR, #MYDATA 
+  			MOV 	R1, #30H 
+  B1:		CLR 	A
+  			MOVC	A,@A+DPTR 
+  			MOV 	@R1,A
+  			LCALL	TRANSMIT
+ 			LCALL	SendChar
+  			JZ 	EXIT_MSG1
+  			INC 	DPTR
+  			INC 	R1
+  			SJMP 	B1
+  EXIT_MSG1: RET
+      ;********************************************************************************************************************* ACCESS GRANTED MESSAGE ***************   
+       MSG2: 
+ 			LCALL ClearDisp
+ 			LCALL	TRANSMIT   
+  			MOV 	DPTR, #MYDATA_2 
+  			MOV 	R1, #30H 
+  B2:			CLR 	A
+  			MOVC	A,@A+DPTR 
+  			MOV 	@R1,A
+  			LCALL	TRANSMIT
+ 			LCALL	SendChar
+  			JZ 	EXIT_MSG2
+  			INC 	DPTR
+  			INC	R1
+  			SJMP 	B2
+  EXIT_MSG2: RET
+      ;********************************************************************************************************************* ACCESS DENIED MESSAGE ***************   
+       MSG3: 
+ 			LCALL ClearDisp
+ 			LCALL	TRANSMIT   
+  			MOV 	DPTR, #MYDATA_3 
+  			MOV 	R1, #30H 
+  B3:			CLR 	A
+  			MOVC	A,@A+DPTR 
+  			MOV 	@R1,A
+  			LCALL	TRANSMIT
+ 			LCALL	SendChar
+ 			JZ 	EXIT_MSG3
+  			INC 	DPTR
+  			INC 	R1
+  			SJMP 	B3
+  EXIT_MSG3: RET
+      ;***********************************************************************************************************************************************************
+            	ORG 200H
+            MYDATA: 	DB 		'E', 'N', 'T', 'E', 'R', ' ', 'P', 'A', 'S', 'S', 'C', 'O', 'D', 'E','\n', 0
+        		ORG 300H
+            MYDATA_2: DB 		'A', 'C', 'C', 'E', 'S', 'S', ' ', 'G', 'R', 'A', 'N', 'T', 'E', 'D', '\n',0
+        		ORG 400H
+            MYDATA_3: DB 		'A', 'C', 'C', 'E', 'S', 'S', ' ', 'D', 'E', 'N', 'I', 'E', 'D', '\n',0
+        
+      ;************************************************************************************************************************ TRANSMIT TO UART FUNCTION **********      
+  TRANSMIT: 	Mov 	SBUF,A
+  Here:		JNB		TI,HERE
+  			CLR 	TI
+  			Ret
+      ;*********************************************************************************************************************** LCD PROTOCOL ***************************************
+       
+       
+ SetLCD:			CLR 	RS			; RS=0 - Instruction register is selected						
+ 			LCALL 	FuncSet		; Function set 
+ 			LCALL 	DispCon		; Display on/off control	
+ 			LCALL 	EntryMode		; Entry mode set (4-bit mode)
+ 			SETB	RS	
+ 			RET
+       
+      ; ---------------------------------------------------------------
+ FuncSet:	CLR  P1.7		; |
+ 			CLR  P1.6		; |
+ 			SETB P1.5		; | bit 5=1
+ 			CLR  P1.4		; | (DB4)DL=0 - puts LCD module into 4-bit mode 
+      	
+ 			CALL Pulse
+ 			CALL Delay		; wait for BF to clear
+ 			CALL Pulse
+      							
+ 			SETB P1.7		; P1.7=1 (N) - 2 lines 
+ 			CLR  P1.6
+ 			CLR  P1.5
+ 			CLR  P1.4
+     			
+ 			CALL Pulse
+      			
+ 			CALL Delay
+ 			RET	
+      ;---------------------------------------------------------------------------------------------------------------------- DISPLAY ON/OFF CONTROL -----------------------
+      ; The display is turned on, the cursor is turned on
+ DispCon:	CLR P1.7		; |
+ 			CLR P1.6		; |
+ 			CLR P1.5		; |
+ 			CLR P1.4		; | high nibble set (0H - hex)
+       
+ 			CALL Pulse
+       
+ 			SETB P1.7		; |
+ 			SETB P1.6		; | Sets entire display ON
+ 			SETB P1.5		; | Cursor ON
+ 			SETB P1.4		; | Cursor blinking ON
+ 			CALL Pulse
+       
+ 			CALL Delay		; wait for BF to clear	
+ 			RET
+      ;-------------------------------------------------------------------------------------------------------------------- SET ENTRY MODE (4-BIT MODE) ----------------------
+      ;    Set to increment the address by one and cursor shifted to the right
+ EntryMode:		CLR P1.7		; | P1.7=0
+ 			CLR P1.6		; | P1.6=0
+ 			CLR P1.5		; | P1.5=0
+ 			CLR P1.4		; | P1.4=0
+       
+ 			CALL Pulse
+       
+ 			CLR  P1.7		; | P1.7 = '0'
+ 			SETB P1.6		; | P1.6 = '1'
+ 			SETB P1.5		; | P1.5 = '1' increments when I/D = 1 or decrements when I/D = 0
+ 			CLR  P1.4		; | P1.4 = '0' 
+       
+ 			CALL Pulse
+       
+ 			CALL Delay		; wait for BF to clear
+ 			RET
+      ;--------------------------------------------------------------------------------------------------------------------------- PULSE ------------------------------------------
+ Pulse:		SETB E			; | * P1.2 is connected to 'E' pin of LCD module *
+ 			CLR  E			; | negative edge on E	
+ 			RET
+      ;--------------------------------------------------------------------------------------------------------------------------- SendChar -------------------------------------			
+      SendChar:		
+      		
+ 			Mov C, ACC.7		; |
+ 			Mov P1.7, C			; |
+ 			Mov C, ACC.6		; |
+ 			Mov P1.6, C			; |
+ 			Mov C, ACC.5		; |
+ 			Mov P1.5, C			; |
+ 			Mov C, ACC.4		; |
+ 			Mov P1.4, C			; | high nibble set
+       
+ 			Call Pulse
+      
+ 			Mov C, ACC.3		; |
+ 			Mov P1.7, C			; |
+ 			Mov C, ACC.2		; |
+ 			Mov P1.6, C			; |
+ 			Mov C, ACC.1		; |
+ 			Mov P1.5, C			; |
+ 			Mov C, ACC.0		; |
+ 			Mov P1.4, C			; | low nibble set
+       
+ 			Call Pulse
+       
+ 			Call Delay			; wait for BF to clear
+ 			Ret
+      ; ------------------------------ CLEAR DISPLAY -------------------------------------
+       
+      ClearDisp:
+          			
+    		CLR RS		; Set RS to 0 to send a command
+     		MOV A, #01H	; command to clear the display		
+    		ACALL SendChar	; sends the command to LCD
+     		ACALL Delay
+ 		SETB RS		; IMPORTANT! LCD will NOT print anything unless RS is 1
+     RET
+       
+       
+    ;*******DELAY 3 MIN*************
+DELAY_3MIN:		MOV R4, #67
+RELOAD_R_2:		MOV R2, #250
+RELOAD_R_3:		MOV R3, #150
+REPEAT1:			NOP
+			NOP		
+			DJNZ R3, REPEAT1
+			DJNZ R2, RELOAD_R_3 
+			DJNZ R4, RELOAD_R_2
+RET
+
+;******* LED'S ANIMATION FOR 5 SECONDS THEN TURN OFF (UPD.FREQ = 10,000 *************
+LEDS_5sec_Animation:
+CLR A
+MOV A, #01100110B
+MOV P1, A
+ACALL DELAY_5SEC
+ACALL LEDS__OFF
+RET
+;******* LEDS OFF *************
+LEDS__OFF:
+CLR A
+MOV A, #11111111B
+MOV P1, A
+RET
+
+;******* LED'S ANIMATION FOR 3 MINUTES THEN TURN OFF (UPD.FREQ = 10,000) *************
+LEDS_3min_Animation:
+CLR A
+MOV A, #01100110B
+MOV P1, A
+ACALL DELAY_3MIN
+ACALL LEDS_OFF
+RET
+
+;******* LEDS OFF *************
+LEDS_OFF:
+CLR A
+MOV A, #11111111B
+MOV P1, A
+RET   
+       
+      ;------------------------------------- LONG DELAY -------------------------------------		
+ LongDelay:		MOV R3, #05
+ Next:			CALL Delay
+ 			DJNZ R3, Next
+ 			RET
+       
+ DELAY_5SEC:		MOV R4, #10
+ RELOAD_R_two:		MOV	R2, #30
+ RELOAD_R_three:	MOV R3, #30
+ REPEAT:			NOP
+ 				NOP		
+ 				DJNZ R3, REPEAT
+ 				DJNZ R2, RELOAD_R_three 
+ 				DJNZ R4, RELOAD_R_two
+ RET
+      ;----------------------------------------------------------------------------------------------------------------------------------- DELAY -------------------------------------		
+ Delay:			MOV 46H, #150
+ 				DJNZ 46H, $
+ 				RET
